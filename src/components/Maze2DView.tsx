@@ -13,6 +13,7 @@ import {
   greedyBestFirstSearch,
 } from "./utils";
 import type { MazeSettings, MazeStats } from "@/App";
+import BackgroundParticles from "./backgroundParticles";
 
 interface Maze2DViewProps {
   settings: MazeSettings;
@@ -220,7 +221,8 @@ export default function Maze2DView({
         />
         <ambientLight intensity={0.5} />
         <directionalLight position={[10, 20, 10]} intensity={0.8} />
-
+        {/* Background particles */}
+        <BackgroundParticles count={50000} spread={100} color={0x32cd32} />
         {nodes.map(([x, y]) => (
           <mesh
             key={`cell-${x}-${y}`}
