@@ -179,3 +179,530 @@ export function printMaze(maze: number[][]): void {
       .join("\n")
   );
 }
+
+export const COLORS = {
+  VISITED: 0x1e90ff, // Dodger Blue - nodes that have been explored
+  FRONTIER: 0x87ceeb, // Sky Blue - nodes in the queue/stack, lighter than VISITED
+  PATH: 0xffd700, // Gold/Yellow - final path from start to goal
+  START: 0x32cd32, // Lime Green - start node
+  GOAL: 0xff8c00, // Dark Orange - goal node
+  WALL: 0x555555, // Dark Gray - walls
+  EMPTY: 0x111111, // Almost black - empty nodes (optional for clarity)
+};
+
+// Helper types
+type Position = [number, number];
+type PaintFunction = (x: number, y: number, color: number) => void;
+
+interface SearchResult {
+  path: Position[];
+  visitedCount: number;
+  success: boolean;
+}
+
+// Get walkable neighbors (4-directional movement)
+function getNeighbors(pos: Position, maze: number[][]): Position[] {
+  const [x, y] = pos;
+  const neighbors: Position[] = [];
+  const directions = [
+    [0, 1], // down
+    [1, 0], // right
+    [0, -1], // up
+    [-1, 0], // left
+  ];
+
+  for (const [dx, dy] of directions) {
+    const nx = x + dx;
+    const ny = y + dy;
+
+    if (
+      ny >= 0 &&
+      ny < maze.length &&
+      nx >= 0 &&
+      nx < maze[0].length &&
+      maze[ny][nx] !== CELL_TYPES.WALL
+    ) {
+      neighbors.push([nx, ny]);
+    }
+  }
+
+  return neighbors;
+}
+
+// Reconstruct path from parent map
+function reconstructPath(
+  parentMap: Map<string, Position>,
+  start: Position,
+  goal: Position
+): Position[] {
+  const path: Position[] = [];
+  let current = goal;
+
+  while (current[0] !== start[0] || current[1] !== start[1]) {
+    path.unshift(current);
+    const key = `${current[0]}-${current[1]}`;
+    const parent = parentMap.get(key);
+    if (!parent) break;
+    current = parent;
+  }
+
+  path.unshift(start);
+  return path;
+}
+
+// Add delay for visualization
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Breadth-First Search (BFS)
+ * Guarantees shortest path in unweighted graphs
+ */
+export async function breadthFirstSearch(
+  maze: number[][],
+  start: Position,
+  goal: Position,
+  paintNode: PaintFunction,
+  delayMs: number = 50,
+  abortSignal?: AbortSignal
+): Promise<SearchResult> {
+  const queue: Position[] = [start];
+  const visited = new Set<string>();
+  const parentMap = new Map<string, Position>();
+
+  visited.add(`${start[0]}-${start[1]}`);
+  let visitedCount = 0;
+
+  while (queue.length > 0) {
+    if (abortSignal?.aborted) throw new DOMException("Aborted", "AbortError");
+    const current = queue.shift()!;
+    const [x, y] = current;
+    visitedCount++;
+
+    // Paint current node as visited
+    if (x !== start[0] || y !== start[1]) {
+      if (x !== goal[0] || y !== goal[1]) {
+        if (abortSignal?.aborted)
+          throw new DOMException("Aborted", "AbortError");
+        paintNode(x, y, COLORS.VISITED);
+        await delay(delayMs);
+      }
+    }
+
+    // Check if we reached the goal
+    if (x === goal[0] && y === goal[1]) {
+      const path = reconstructPath(parentMap, start, goal);
+      // Paint the path
+      for (const [px, py] of path) {
+        if (
+          (px !== start[0] || py !== start[1]) &&
+          (px !== goal[0] || py !== goal[1])
+        ) {
+          if (abortSignal?.aborted)
+            throw new DOMException("Aborted", "AbortError");
+          paintNode(px, py, COLORS.PATH);
+          await delay(delayMs / 2);
+        }
+      }
+      return { path, visitedCount, success: true };
+    }
+
+    // Explore neighbors
+    const neighbors = getNeighbors(current, maze);
+    for (const neighbor of neighbors) {
+      const [nx, ny] = neighbor;
+      const key = `${nx}-${ny}`;
+
+      if (!visited.has(key)) {
+        visited.add(key);
+        parentMap.set(key, current);
+        queue.push(neighbor);
+
+        // Paint frontier nodes
+        if (nx !== goal[0] || ny !== goal[1]) {
+          if (abortSignal?.aborted)
+            throw new DOMException("Aborted", "AbortError");
+          paintNode(nx, ny, COLORS.FRONTIER);
+        }
+      }
+    }
+  }
+
+  return { path: [], visitedCount, success: false };
+}
+
+/**
+ * Depth-First Search (DFS)
+ * Does not guarantee shortest path
+ */
+export async function depthFirstSearch(
+  maze: number[][],
+  start: Position,
+  goal: Position,
+  paintNode: PaintFunction,
+  delayMs: number = 50,
+  abortSignal?: AbortSignal
+): Promise<SearchResult> {
+  const stack: Position[] = [start];
+  const visited = new Set<string>();
+  const parentMap = new Map<string, Position>();
+
+  visited.add(`${start[0]}-${start[1]}`);
+  let visitedCount = 0;
+
+  while (stack.length > 0) {
+    if (abortSignal?.aborted) throw new DOMException("Aborted", "AbortError");
+    const current = stack.pop()!;
+    const [x, y] = current;
+    visitedCount++;
+
+    // Paint current node as visited
+    if (x !== start[0] || y !== start[1]) {
+      if (x !== goal[0] || y !== goal[1]) {
+        if (abortSignal?.aborted)
+          throw new DOMException("Aborted", "AbortError");
+        paintNode(x, y, COLORS.VISITED);
+        await delay(delayMs);
+      }
+    }
+
+    // Check if we reached the goal
+    if (x === goal[0] && y === goal[1]) {
+      const path = reconstructPath(parentMap, start, goal);
+      // Paint the path
+      for (const [px, py] of path) {
+        if (
+          (px !== start[0] || py !== start[1]) &&
+          (px !== goal[0] || py !== goal[1])
+        ) {
+          if (abortSignal?.aborted)
+            throw new DOMException("Aborted", "AbortError");
+          paintNode(px, py, COLORS.PATH);
+          await delay(delayMs / 2);
+        }
+      }
+      return { path, visitedCount, success: true };
+    }
+
+    // Explore neighbors
+    const neighbors = getNeighbors(current, maze);
+    for (const neighbor of neighbors) {
+      const [nx, ny] = neighbor;
+      const key = `${nx}-${ny}`;
+
+      if (!visited.has(key)) {
+        visited.add(key);
+        parentMap.set(key, current);
+        stack.push(neighbor);
+
+        // Paint frontier nodes
+        if (nx !== goal[0] || ny !== goal[1]) {
+          if (abortSignal?.aborted)
+            throw new DOMException("Aborted", "AbortError");
+          paintNode(nx, ny, COLORS.FRONTIER);
+        }
+      }
+    }
+  }
+
+  return { path: [], visitedCount, success: false };
+}
+
+/**
+ * A* Search Algorithm
+ * Uses heuristic (Manhattan distance) to find optimal path efficiently
+ */
+export async function aStarSearch(
+  maze: number[][],
+  start: Position,
+  goal: Position,
+  paintNode: PaintFunction,
+  delayMs: number = 50,
+  abortSignal?: AbortSignal
+): Promise<SearchResult> {
+  // Manhattan distance heuristic
+  const heuristic = (pos: Position): number => {
+    return Math.abs(pos[0] - goal[0]) + Math.abs(pos[1] - goal[1]);
+  };
+
+  interface Node {
+    pos: Position;
+    g: number; // Cost from start
+    h: number; // Heuristic to goal
+    f: number; // Total cost (g + h)
+  }
+
+  const openSet: Node[] = [
+    {
+      pos: start,
+      g: 0,
+      h: heuristic(start),
+      f: heuristic(start),
+    },
+  ];
+
+  const visited = new Set<string>();
+  const parentMap = new Map<string, Position>();
+  const gScore = new Map<string, number>();
+  gScore.set(`${start[0]}-${start[1]}`, 0);
+
+  let visitedCount = 0;
+
+  while (openSet.length > 0) {
+    if (abortSignal?.aborted) throw new DOMException("Aborted", "AbortError");
+    // Get node with lowest f score
+    openSet.sort((a, b) => a.f - b.f);
+    const current = openSet.shift()!;
+    const [x, y] = current.pos;
+    const currentKey = `${x}-${y}`;
+
+    if (visited.has(currentKey)) continue;
+    visited.add(currentKey);
+    visitedCount++;
+
+    // Paint current node as visited
+    if (x !== start[0] || y !== start[1]) {
+      if (x !== goal[0] || y !== goal[1]) {
+        if (abortSignal?.aborted)
+          throw new DOMException("Aborted", "AbortError");
+        paintNode(x, y, COLORS.VISITED);
+        await delay(delayMs);
+      }
+    }
+
+    // Check if we reached the goal
+    if (x === goal[0] && y === goal[1]) {
+      const path = reconstructPath(parentMap, start, goal);
+      // Paint the path
+      for (const [px, py] of path) {
+        if (
+          (px !== start[0] || py !== start[1]) &&
+          (px !== goal[0] || py !== goal[1])
+        ) {
+          if (abortSignal?.aborted)
+            throw new DOMException("Aborted", "AbortError");
+          paintNode(px, py, COLORS.PATH);
+          await delay(delayMs / 2);
+        }
+      }
+      return { path, visitedCount, success: true };
+    }
+
+    // Explore neighbors
+    const neighbors = getNeighbors(current.pos, maze);
+    for (const neighbor of neighbors) {
+      const [nx, ny] = neighbor;
+      const key = `${nx}-${ny}`;
+
+      if (visited.has(key)) continue;
+
+      const tentativeG = current.g + 1;
+      const existingG = gScore.get(key) ?? Infinity;
+
+      if (tentativeG < existingG) {
+        parentMap.set(key, current.pos);
+        gScore.set(key, tentativeG);
+
+        const h = heuristic(neighbor);
+        openSet.push({
+          pos: neighbor,
+          g: tentativeG,
+          h: h,
+          f: tentativeG + h,
+        });
+
+        // Paint frontier nodes
+        if (nx !== goal[0] || ny !== goal[1]) {
+          if (abortSignal?.aborted)
+            throw new DOMException("Aborted", "AbortError");
+          paintNode(nx, ny, COLORS.FRONTIER);
+        }
+      }
+    }
+  }
+
+  return { path: [], visitedCount, success: false };
+}
+
+/**
+ * Dijkstra's Algorithm
+ * Similar to A* but without heuristic (uniform cost search)
+ */
+export async function dijkstraSearch(
+  maze: number[][],
+  start: Position,
+  goal: Position,
+  paintNode: PaintFunction,
+  delayMs: number = 50,
+  abortSignal?: AbortSignal
+): Promise<SearchResult> {
+  interface Node {
+    pos: Position;
+    cost: number;
+  }
+
+  const openSet: Node[] = [{ pos: start, cost: 0 }];
+  const visited = new Set<string>();
+  const parentMap = new Map<string, Position>();
+  const costMap = new Map<string, number>();
+  costMap.set(`${start[0]}-${start[1]}`, 0);
+
+  let visitedCount = 0;
+
+  while (openSet.length > 0) {
+    if (abortSignal?.aborted) throw new DOMException("Aborted", "AbortError");
+    // Get node with lowest cost
+    openSet.sort((a, b) => a.cost - b.cost);
+    const current = openSet.shift()!;
+    const [x, y] = current.pos;
+    const currentKey = `${x}-${y}`;
+
+    if (visited.has(currentKey)) continue;
+    visited.add(currentKey);
+    visitedCount++;
+
+    // Paint current node as visited
+    if (x !== start[0] || y !== start[1]) {
+      if (x !== goal[0] || y !== goal[1]) {
+        if (abortSignal?.aborted)
+          throw new DOMException("Aborted", "AbortError");
+        paintNode(x, y, COLORS.VISITED);
+        await delay(delayMs);
+      }
+    }
+
+    // Check if we reached the goal
+    if (x === goal[0] && y === goal[1]) {
+      const path = reconstructPath(parentMap, start, goal);
+      // Paint the path
+      for (const [px, py] of path) {
+        if (
+          (px !== start[0] || py !== start[1]) &&
+          (px !== goal[0] || py !== goal[1])
+        ) {
+          if (abortSignal?.aborted)
+            throw new DOMException("Aborted", "AbortError");
+          paintNode(px, py, COLORS.PATH);
+          await delay(delayMs / 2);
+        }
+      }
+      return { path, visitedCount, success: true };
+    }
+
+    // Explore neighbors
+    const neighbors = getNeighbors(current.pos, maze);
+    for (const neighbor of neighbors) {
+      const [nx, ny] = neighbor;
+      const key = `${nx}-${ny}`;
+
+      if (visited.has(key)) continue;
+
+      const newCost = current.cost + 1;
+      const existingCost = costMap.get(key) ?? Infinity;
+
+      if (newCost < existingCost) {
+        parentMap.set(key, current.pos);
+        costMap.set(key, newCost);
+        openSet.push({ pos: neighbor, cost: newCost });
+
+        // Paint frontier nodes
+        if (nx !== goal[0] || ny !== goal[1]) {
+          if (abortSignal?.aborted)
+            throw new DOMException("Aborted", "AbortError");
+          paintNode(nx, ny, COLORS.FRONTIER);
+        }
+      }
+    }
+  }
+
+  return { path: [], visitedCount, success: false };
+}
+
+/**
+ * Greedy Best-First Search
+ * Uses only heuristic (faster but doesn't guarantee optimal path)
+ */
+export async function greedyBestFirstSearch(
+  maze: number[][],
+  start: Position,
+  goal: Position,
+  paintNode: PaintFunction,
+  delayMs: number = 50,
+  abortSignal?: AbortSignal
+): Promise<SearchResult> {
+  // Manhattan distance heuristic
+
+  const heuristic = (pos: Position): number => {
+    return Math.abs(pos[0] - goal[0]) + Math.abs(pos[1] - goal[1]);
+  };
+
+  interface Node {
+    pos: Position;
+    h: number;
+  }
+
+  const openSet: Node[] = [{ pos: start, h: heuristic(start) }];
+  const visited = new Set<string>();
+  const parentMap = new Map<string, Position>();
+
+  visited.add(`${start[0]}-${start[1]}`);
+  let visitedCount = 0;
+
+  while (openSet.length > 0) {
+    if (abortSignal?.aborted) throw new DOMException("Aborted", "AbortError");
+    // Get node with lowest heuristic
+    openSet.sort((a, b) => a.h - b.h);
+    const current = openSet.shift()!;
+    const [x, y] = current.pos;
+    visitedCount++;
+
+    // Paint current node as visited
+    if (x !== start[0] || y !== start[1]) {
+      if (x !== goal[0] || y !== goal[1]) {
+        if (abortSignal?.aborted)
+          throw new DOMException("Aborted", "AbortError");
+        paintNode(x, y, COLORS.VISITED);
+        await delay(delayMs);
+      }
+    }
+
+    // Check if we reached the goal
+    if (x === goal[0] && y === goal[1]) {
+      const path = reconstructPath(parentMap, start, goal);
+      // Paint the path
+      for (const [px, py] of path) {
+        if (
+          (px !== start[0] || py !== start[1]) &&
+          (px !== goal[0] || py !== goal[1])
+        ) {
+          if (abortSignal?.aborted)
+            throw new DOMException("Aborted", "AbortError");
+          paintNode(px, py, COLORS.PATH);
+          await delay(delayMs / 2);
+        }
+      }
+      return { path, visitedCount, success: true };
+    }
+
+    // Explore neighbors
+    const neighbors = getNeighbors(current.pos, maze);
+    for (const neighbor of neighbors) {
+      const [nx, ny] = neighbor;
+      const key = `${nx}-${ny}`;
+
+      if (!visited.has(key)) {
+        visited.add(key);
+        parentMap.set(key, current.pos);
+        openSet.push({ pos: neighbor, h: heuristic(neighbor) });
+
+        // Paint frontier nodes
+        if (nx !== goal[0] || ny !== goal[1]) {
+          if (abortSignal?.aborted)
+            throw new DOMException("Aborted", "AbortError");
+          paintNode(nx, ny, COLORS.FRONTIER);
+        }
+      }
+    }
+  }
+
+  return { path: [], visitedCount, success: false };
+}

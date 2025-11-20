@@ -89,6 +89,15 @@ const SciFiSphere = forwardRef<SciFiSphereHandle, SciFiSphereProps>(
     useImperativeHandle(ref, () => ({
       paint(color: number) {
         const mat = liquidMaterial.current;
+        if (color === 0) {
+          // Remove liquid color by making it transparent and invisible
+          mat.uniforms.color1.value.setRGB(0, 0, 0);
+          mat.uniforms.color2.value.setRGB(0, 0, 0);
+          mat.uniforms.glowColor.value.setRGB(0, 0, 0);
+          if (liquidRef.current) liquidRef.current.visible = false;
+          visible.current = false;
+          return;
+        }
         mat.uniforms.color1.value.setHex(color);
         mat.uniforms.color2.value.setHex(color).multiplyScalar(0.66);
         mat.uniforms.glowColor.value.setHex(color).multiplyScalar(1.5);
