@@ -19,7 +19,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Settings, Play, RotateCcw } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Settings, Play, RotateCcw, Square, Cuboid } from "lucide-react";
 import type { Algorithm, MazeSettings, MazeStats } from "@/App";
 
 const algorithmNames: Record<Algorithm, string> = {
@@ -36,6 +37,11 @@ const algorithmDescriptions: Record<Algorithm, string> = {
   astar: "Uses heuristic for efficiency. Optimal and fast.",
   dijkstra: "Uniform cost search. Guarantees shortest path.",
   greedy: "Uses only heuristic. Fast but may not find optimal path.",
+};
+
+const viewTypeLabels: Record<MazeSettings["viewType"], string> = {
+  "2d": "2D",
+  "3d": "3D",
 };
 
 interface SettingsDrawerProps {
@@ -67,7 +73,33 @@ export default function SettingsDrawer({
   return (
     <>
       {/* Control Panel */}
-      <div className="absolute top-4 left-4 flex gap-2 z-10">
+      <div className="absolute top-4 left-4 flex gap-2 z-10 items-center">
+        {/* View Type Switch (2D/3D) OUTSIDE Drawer, next to settings button */}
+        <div className="flex items-center gap-2 bg-[#232535] px-3 py-1 rounded-lg border border-white/10">
+          <Label
+            htmlFor="viewType"
+            className="text-white flex items-center gap-1"
+          >
+            <Square className="w-4 h-4" />
+            2D
+          </Label>
+          <Switch
+            id="viewType"
+            checked={settings.viewType === "3D"}
+            onCheckedChange={(val: boolean) =>
+              updateSetting("viewType", val ? "3D" : "2D")
+            }
+            disabled={isRunning}
+            className="data-[state=checked]:bg-blue-600"
+          />
+          <Label
+            htmlFor="viewType"
+            className="text-white flex items-center gap-1"
+          >
+            <Cuboid className="w-4 h-4" />
+            3D
+          </Label>
+        </div>
         <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
           <DrawerTrigger asChild>
             <Button variant="default" size="lg" className="gap-2">

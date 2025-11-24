@@ -1,6 +1,8 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import SettingsDrawer from "./components/SettingsDrawer";
 import Maze2DView from "./components/Maze2DView";
+import { generateMaze, printMaze } from "./components/utils";
+import Maze3DView from "./components/Maze3DView";
 
 export type Algorithm = "bfs" | "dfs" | "astar" | "dijkstra" | "greedy";
 
@@ -10,6 +12,7 @@ export interface MazeSettings {
   wallDensity: number;
   algorithm: Algorithm;
   animationSpeed: number;
+  viewType: "2D" | "3D";
 }
 
 export interface MazeStats {
@@ -25,26 +28,32 @@ function App() {
     wallDensity: 0.7,
     algorithm: "astar",
     animationSpeed: 50,
+    viewType: "2D",
   });
 
   const [isRunning, setIsRunning] = useState(false);
+  const [shouldReset, setShouldReset] = useState(false);
   const [stats, setStats] = useState<MazeStats | null>(null);
-  const [runTrigger, setRunTrigger] = useState(0);
-  const [resetTrigger, setResetTrigger] = useState(0);
 
-  // Trigger a run
   const handleRun = () => {
-    if (!isRunning) {
-      setRunTrigger((prev) => prev + 1);
-    }
+    setShouldReset(false);
+    setIsRunning(true);
   };
 
-  // Trigger a reset and stop running algorithm
   const handleReset = () => {
-    setResetTrigger((prev) => prev + 1);
+    setShouldReset(true);
     setIsRunning(false);
-    setStats(null);
   };
+
+  const maze = useMemo(() => {
+    const m = generateMaze({
+      width: settings.mazeWidth,
+      height: settings.mazeHeight,
+      wallDensity: settings.wallDensity,
+    });
+    printMaze(m);
+    return m;
+  }, [settings.mazeWidth, settings.mazeHeight, settings.wallDensity]);
 
   return (
     <>
@@ -56,15 +65,29 @@ function App() {
         onRun={handleRun}
         onReset={handleReset}
       />
-      <Maze2DView
-        settings={settings}
-        isRunning={isRunning}
-        setIsRunning={setIsRunning}
-        stats={stats}
-        setStats={setStats}
-        runTrigger={runTrigger}
-        resetTrigger={resetTrigger}
-      />
+      {settings.viewType === "2D" ? (
+        <Maze2DView
+          maze={maze}
+          settings={settings}
+          isRunning={isRunning}
+          setIsRunning={setIsRunning}
+          stats={stats}
+          setStats={setStats}
+          shouldReset={shouldReset}
+          setShouldReset={setShouldReset}
+        />
+      ) : (
+        <Maze3DView
+          maze={maze}
+          settings={settings}
+          isRunning={isRunning}
+          setIsRunning={setIsRunning}
+          stats={stats}
+          setStats={setStats}
+          shouldReset={shouldReset}
+          setShouldReset={setShouldReset}
+        />
+      )}
     </>
   );
 }

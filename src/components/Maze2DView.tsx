@@ -16,22 +16,24 @@ import type { MazeSettings, MazeStats } from "@/App";
 import BackgroundParticles from "./backgroundParticles";
 
 interface Maze2DViewProps {
+  maze: number[][];
   settings: MazeSettings;
   isRunning: boolean;
   setIsRunning: React.Dispatch<React.SetStateAction<boolean>>;
   stats: MazeStats | null;
   setStats: React.Dispatch<React.SetStateAction<MazeStats | null>>;
-  runTrigger: number;
-  resetTrigger: number;
+  shouldReset: boolean;
+  setShouldReset: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 export default function Maze2DView({
+  maze,
   settings,
   isRunning,
   setIsRunning,
   setStats,
-  runTrigger,
-  resetTrigger,
+  shouldReset,
+  setShouldReset,
 }: Maze2DViewProps) {
   const cellSize = 1;
   const sphereRefs = useRef<Map<string, SciFiSphereHandle>>(new Map());
@@ -44,16 +46,6 @@ export default function Maze2DView({
       sphere.paint(color);
     }
   };
-
-  const maze = useMemo(() => {
-    const m = generateMaze({
-      width: settings.mazeWidth,
-      height: settings.mazeHeight,
-      wallDensity: settings.wallDensity,
-    });
-    printMaze(m);
-    return m;
-  }, [settings.mazeWidth, settings.mazeHeight, settings.wallDensity]);
 
   const { nodes, start, goal } = useMemo(() => {
     const n: [number, number][] = [];
@@ -105,9 +97,10 @@ export default function Maze2DView({
   }, [maze, start, goal]);
 
   const runAlgorithm = async () => {
-    if (!start || !goal || isRunning) return;
+    if (!start || !goal || !isRunning) return;
 
     setIsRunning(true);
+    setShouldReset(false);
     setStats(null);
     resetColors();
 
@@ -197,15 +190,16 @@ export default function Maze2DView({
     resetColors();
   };
 
-  // Run algorithm when trigger changes
   useEffect(() => {
-    if (runTrigger > 0) runAlgorithm();
-  }, [runTrigger]);
+    if (isRunning) {
+      runAlgorithm();
+    }
+  }, [isRunning]);
 
   // Reset when reset trigger changes
   useEffect(() => {
-    if (resetTrigger > 0) handleReset();
-  }, [resetTrigger]);
+    if (shouldReset) handleReset();
+  }, [shouldReset]);
 
   return (
     <div className="relative w-screen h-screen">
