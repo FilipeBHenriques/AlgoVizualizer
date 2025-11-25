@@ -75,8 +75,14 @@ export default function Maze2DView({
       const sphere = sphereRefs.current.get(key);
       const isStart = start && start[0] === x && start[1] === y;
       const isGoal = goal && goal[0] === x && goal[1] === y;
-      if (sphere && !isStart && !isGoal) {
-        sphere.paint(0);
+      if (sphere) {
+        if (isStart) {
+          sphere.paint(COLORS.START);
+        } else if (isGoal) {
+          sphere.paint(COLORS.GOAL);
+        } else {
+          sphere.paint(0);
+        }
       }
     });
   };
@@ -91,7 +97,7 @@ export default function Maze2DView({
       if (start) paintNode(start[0], start[1], COLORS.START);
       if (goal) paintNode(goal[0], goal[1], COLORS.GOAL);
       resetColors();
-    }, 50);
+    }, 200);
 
     return () => clearTimeout(timer);
   }, [maze, start, goal]);
