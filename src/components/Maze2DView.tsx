@@ -127,6 +127,7 @@ export default function Maze2DView({
             goal,
             paintNode,
             delay,
+            "2D",
             signal
           );
           break;
@@ -137,6 +138,7 @@ export default function Maze2DView({
             goal,
             paintNode,
             delay,
+            "2D",
             signal
           );
           break;
@@ -147,6 +149,7 @@ export default function Maze2DView({
             goal,
             paintNode,
             delay,
+            "2D",
             signal
           );
           break;
@@ -157,6 +160,7 @@ export default function Maze2DView({
             goal,
             paintNode,
             delay,
+            "2D",
             signal
           );
           break;
@@ -167,6 +171,7 @@ export default function Maze2DView({
             goal,
             paintNode,
             delay,
+            "2D",
             signal
           );
           break;

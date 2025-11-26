@@ -4,9 +4,14 @@ import * as THREE from "three";
 interface MazeWallsProps {
   maze: number[][];
   cellSize?: number;
+  verticalOffset?: number; // Added for vertical offset
 }
 
-export default function MazeWalls({ maze, cellSize = 1 }: MazeWallsProps) {
+export default function MazeWalls({
+  maze,
+  cellSize = 1,
+  verticalOffset = 0, // Default to 0 if not provided
+}: MazeWallsProps) {
   // Create instanced mesh for all walls at once (better performance)
   const wallPositions = useMemo(() => {
     const positions: [number, number, number][] = [];
@@ -15,13 +20,17 @@ export default function MazeWalls({ maze, cellSize = 1 }: MazeWallsProps) {
       for (let x = 0; x < maze[y].length; x++) {
         if (maze[y][x] === 1) {
           // Wall type
-          positions.push([x * cellSize, 0.5 * cellSize, y * cellSize]);
+          positions.push([
+            x * cellSize,
+            0.5 * cellSize + verticalOffset,
+            y * cellSize,
+          ]);
         }
       }
     }
 
     return positions;
-  }, [maze, cellSize]);
+  }, [maze, cellSize, verticalOffset]);
 
   return (
     <group>

@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import SettingsDrawer from "./components/SettingsDrawer";
 import Maze2DView from "./components/Maze2DView";
-import { generateMaze, printMaze } from "./components/utils";
+import { generateMaze, generateMaze3D, printMaze } from "./components/utils";
 import Maze3DView from "./components/Maze3DView";
 
 export type Algorithm = "bfs" | "dfs" | "astar" | "dijkstra" | "greedy";
@@ -55,6 +55,20 @@ function App() {
     return m;
   }, [settings.mazeWidth, settings.mazeHeight, settings.wallDensity]);
 
+  // Use generateMaze3D when in 3D view, otherwise use generateMaze (already set as 'maze')
+  const maze3D = useMemo(() => {
+    if (settings.viewType === "3D") {
+      // Use 3 layers for demo; can expose as a setting if desired
+      return generateMaze3D(3, settings.mazeWidth, settings.mazeHeight);
+    }
+    return [];
+  }, [
+    settings.mazeWidth,
+    settings.mazeHeight,
+    settings.wallDensity,
+    settings.viewType,
+  ]);
+
   return (
     <>
       <SettingsDrawer
@@ -78,7 +92,7 @@ function App() {
         />
       ) : (
         <Maze3DView
-          maze={maze}
+          maze3D={maze3D}
           settings={settings}
           isRunning={isRunning}
           setIsRunning={setIsRunning}
