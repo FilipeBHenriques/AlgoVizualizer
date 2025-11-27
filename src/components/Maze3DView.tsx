@@ -1,9 +1,10 @@
-import React from "react";
+import React, { useMemo, useRef, useEffect } from "react";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
-import Cell from "./Cell";
-import SciFiSphere from "./SciFiSphere";
+import * as THREE from "three";
 import MazeWalls from "./Wall";
+import InstancedSciFiSpheres from "./SciFiSphere";
+
 import { useMazeAlgorithm } from "@/hooks/useMazeAlgorithm";
 import type { MazeStats, MazeSettings } from "@/App";
 
@@ -17,6 +18,35 @@ interface Maze3DViewProps {
   shouldReset: boolean;
   setShouldReset: React.Dispatch<React.SetStateAction<boolean>>;
 }
+
+// Instanced Cells Component
+const InstancedCells: React.FC<{
+  nodes: [number, number, number][];
+  cellSize: number;
+  layerSpacing: number;
+}> = ({ nodes, cellSize, layerSpacing }) => {
+  const meshRef = useRef<THREE.InstancedMesh>(null);
+
+  useEffect(() => {
+    if (!meshRef.current) return;
+
+    const dummy = new THREE.Object3D();
+    nodes.forEach(([x, y, z], i) => {
+      dummy.position.set(x * cellSize, z * layerSpacing, y * cellSize);
+      dummy.rotation.set(-Math.PI / 2, 0, 0);
+      dummy.updateMatrix();
+      meshRef.current!.setMatrixAt(i, dummy.matrix);
+    });
+    meshRef.current.instanceMatrix.needsUpdate = true;
+  }, [nodes, cellSize, layerSpacing]);
+
+  return (
+    <instancedMesh ref={meshRef} args={[undefined, undefined, nodes.length]}>
+      <planeGeometry args={[cellSize, cellSize]} />
+      <meshStandardMaterial color="#1a1a1a" side={THREE.DoubleSide} />
+    </instancedMesh>
+  );
+};
 
 const Maze3DView: React.FC<Maze3DViewProps> = (props) => {
   const cellSize = 1;
@@ -33,23 +63,47 @@ const Maze3DView: React.FC<Maze3DViewProps> = (props) => {
     viewType: "3D",
   });
 
+  // Pre-computed positions for sci-fi spheres
+  const spherePositions = useMemo(
+    () =>
+      nodes.map(([x, y, z]) => ({
+        x: x * cellSize,
+        y: z * layerSpacing + 1,
+        z: y * cellSize,
+      })),
+    [nodes, cellSize, layerSpacing]
+  );
+
+  // Shared materials for better performance
+  const materials = useMemo(
+    () => ({
+      ambient: <ambientLight intensity={0.5} />,
+      directional: <directionalLight intensity={1.2} position={[10, 20, 10]} />,
+    }),
+    []
+  );
+
   return (
     <div className="w-screen h-screen">
-      <Canvas style={{ width: "100%", height: "100%", background: "#050505" }}>
-        <ambientLight intensity={0.5} />
-        <directionalLight intensity={1.2} position={[10, 20, 10]} />
-        <OrbitControls />
+      <Canvas
+        style={{ width: "100%", height: "100%", background: "#050505" }}
+        gl={{
+          antialias: true,
+          powerPreference: "high-performance",
+        }}
+      >
+        {materials.ambient}
+        {materials.directional}
+        <OrbitControls makeDefault />
 
-        {nodes.map(([x, y, z]) => (
-          <mesh
-            key={`cell-${x}-${y}-${z}`}
-            position={[x * cellSize, z * layerSpacing, y * cellSize]}
-            rotation={[-Math.PI / 2, 0, 0]}
-          >
-            <Cell size={cellSize} />
-          </mesh>
-        ))}
+        {/* Instanced Cells - Single draw call */}
+        <InstancedCells
+          nodes={nodes as [number, number, number][]}
+          cellSize={cellSize}
+          layerSpacing={layerSpacing}
+        />
 
+        {/* Walls for all layers */}
         {props.maze3D.map((maze, z) => (
           <MazeWalls
             key={`walls-${z}`}
@@ -59,20 +113,12 @@ const Maze3DView: React.FC<Maze3DViewProps> = (props) => {
           />
         ))}
 
-        {nodes.map(([x, y, z]) => {
-          const key = `${x}-${y}-${z}`;
-          return (
-            <SciFiSphere
-              key={`sphere-${x}-${y}-${z}`}
-              position={[x * cellSize, z * layerSpacing + 1, y * cellSize]}
-              scale={0.4}
-              ref={(ref) => {
-                if (ref) sphereRefs.current.set(key, ref);
-                else sphereRefs.current.delete(key);
-              }}
-            />
-          );
-        })}
+        {/* Instanced Sci-Fi Spheres - Single draw call */}
+        <InstancedSciFiSpheres
+          nodes={nodes as [number, number, number][]}
+          positions={spherePositions}
+          sphereRefs={sphereRefs}
+        />
       </Canvas>
     </div>
   );
