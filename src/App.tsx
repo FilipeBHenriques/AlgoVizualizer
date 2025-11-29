@@ -12,6 +12,7 @@ export interface MazeSettings {
   wallDensity: number;
   algorithm: Algorithm;
   animationSpeed: number;
+  mazeLevels: number;
   viewType: "2D" | "3D";
 }
 
@@ -28,6 +29,7 @@ function App() {
     wallDensity: 0.7,
     algorithm: "astar",
     animationSpeed: 50,
+    mazeLevels: 3,
     viewType: "2D",
   });
 
@@ -59,7 +61,11 @@ function App() {
   const maze3D = useMemo(() => {
     if (settings.viewType === "3D") {
       // Use 3 layers for demo; can expose as a setting if desired
-      return generateMaze3D(3, settings.mazeWidth, settings.mazeHeight);
+      return generateMaze3D(
+        settings.mazeLevels,
+        settings.mazeWidth,
+        settings.mazeHeight
+      );
     }
     return [];
   }, [

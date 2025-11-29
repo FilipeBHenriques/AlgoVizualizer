@@ -179,6 +179,30 @@ export default function SettingsDrawer({
                   </p>
                 </div>
 
+                {/* Maze Levels (3D only) */}
+                {settings.viewType === "3D" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="levels" className="text-white">
+                      Maze Levels: {settings.mazeLevels}
+                    </Label>
+                    <Slider
+                      id="levels"
+                      min={2}
+                      max={10}
+                      step={1}
+                      value={[settings.mazeLevels]}
+                      onValueChange={(vals) =>
+                        updateSetting("mazeLevels", vals[0])
+                      }
+                      disabled={isRunning}
+                      className="dark"
+                    />
+                    <p className="text-sm text-zinc-400">
+                      Only available in 3D Maze mode
+                    </p>
+                  </div>
+                )}
+
                 {/* Maze Width */}
                 <div className="space-y-2">
                   <Label htmlFor="width" className="text-white">

@@ -145,14 +145,6 @@ export function generateMaze3D(
   let start: [number, number, number] | null = null;
   let goal: [number, number, number] | null = null;
 
-  // Utility to copy a maze (needed for marking START/GOAL)
-  function cloneMaze(maze: number[][]): number[][] {
-    return maze.map((row) => [...row]);
-  }
-
-  // Try to generate a maze3D where there's always a path from start to goal,
-  // and the goal and start are never on the same floor
-
   // Step 1: Generate layers as 2D mazes
   maze3D = [];
   for (let z = 0; z < layers; z++) maze3D.push(generateMaze({ width, height }));
@@ -162,23 +154,36 @@ export function generateMaze3D(
   for (let z = 0; z < layers - 1; z++) {
     const mazeA = maze3D[z];
     const mazeB = maze3D[z + 1];
-    const candidates: [number, number][] = [];
+
+    // Candidates for PORTAL_UP in layer A
+    const upCandidates: [number, number][] = [];
     for (let y = 1; y < height - 1; y++) {
       for (let x = 1; x < width - 1; x++) {
-        if (
-          mazeA[y][x] !== CELL_TYPES.WALL &&
-          mazeB[y][x] !== CELL_TYPES.WALL
-        ) {
-          candidates.push([x, y]);
+        if (mazeA[y][x] !== CELL_TYPES.WALL) {
+          upCandidates.push([x, y]);
         }
       }
     }
-    if (candidates.length > 0) {
-      const [px, py] =
-        candidates[Math.floor(Math.random() * candidates.length)];
-      mazeA[py][px] = CELL_TYPES.PORTAL_UP;
-      mazeB[py][px] = CELL_TYPES.PORTAL_DOWN;
-      portalPositions.push([px, py, z]);
+
+    // Candidates for PORTAL_DOWN in layer B
+    const downCandidates: [number, number][] = [];
+    for (let y = 1; y < height - 1; y++) {
+      for (let x = 1; x < width - 1; x++) {
+        if (mazeB[y][x] !== CELL_TYPES.WALL) {
+          downCandidates.push([x, y]);
+        }
+      }
+    }
+
+    if (upCandidates.length > 0 && downCandidates.length > 0) {
+      const [upX, upY] =
+        upCandidates[Math.floor(Math.random() * upCandidates.length)];
+      const [downX, downY] =
+        downCandidates[Math.floor(Math.random() * downCandidates.length)];
+      mazeA[upY][upX] = CELL_TYPES.PORTAL_UP;
+      mazeB[downY][downX] = CELL_TYPES.PORTAL_DOWN;
+      portalPositions.push([upX, upY, z]);
+      // Optionally keep track of down portal too: portalPositions.push([downX, downY, z+1]);
     }
   }
 
@@ -275,6 +280,7 @@ export const COLORS = {
   EMPTY: 0x111111,
   PORTAL_UP: 0x7b68ee, // purple-ish for up
   PORTAL_DOWN: 0x00ced1, // teal for down
+  THREAD_DEFAULT: 0x4444ff,
 };
 
 // Helper types
@@ -287,6 +293,11 @@ export type PaintFunction3D = (
   color: number
 ) => void;
 export type PaintNode = PaintFunction | PaintFunction3D;
+export type PaintThreadFunction = (
+  fromPos: [number, number, number],
+  toPos: [number, number, number],
+  color: number
+) => void;
 
 export interface SearchResult {
   path: Position[];
@@ -347,11 +358,31 @@ export function getNeighbors3D(
     )
       neighbors.push([nx, ny, z]);
   }
-  const cell = layer[y][x];
-  if (cell === CELL_TYPES.PORTAL_UP && maze3D[z + 1])
-    neighbors.push([x, y, z + 1]);
-  if (cell === CELL_TYPES.PORTAL_DOWN && maze3D[z - 1])
-    neighbors.push([x, y, z - 1]);
+
+  // Find up-neighbors: All [nx,ny] in layer z+1 where cell is PORTAL_DOWN
+  if (layer[y][x] === CELL_TYPES.PORTAL_UP && maze3D[z + 1]) {
+    const nextLayer = maze3D[z + 1];
+    for (let ny = 0; ny < nextLayer.length; ny++) {
+      for (let nx = 0; nx < nextLayer[ny].length; nx++) {
+        if (nextLayer[ny][nx] === CELL_TYPES.PORTAL_DOWN) {
+          neighbors.push([nx, ny, z + 1]);
+        }
+      }
+    }
+  }
+
+  // Find down-neighbors: All [nx,ny] in layer z-1 where cell is PORTAL_UP
+  if (layer[y][x] === CELL_TYPES.PORTAL_DOWN && maze3D[z - 1]) {
+    const prevLayer = maze3D[z - 1];
+    for (let ny = 0; ny < prevLayer.length; ny++) {
+      for (let nx = 0; nx < prevLayer[ny].length; nx++) {
+        if (prevLayer[ny][nx] === CELL_TYPES.PORTAL_UP) {
+          neighbors.push([nx, ny, z - 1]);
+        }
+      }
+    }
+  }
+
   return neighbors;
 }
 
@@ -397,6 +428,63 @@ function callPaintNode(
   }
 }
 
+// Auxiliary function to paint the path and threads
+async function paintPathAndThreads(
+  path: number[][],
+  start: number[],
+  goal: number[],
+  maze: number[][] | number[][][],
+  viewType: "2D" | "3D",
+  paintNode: PaintNode,
+  paintThread: PaintThreadFunction | undefined,
+  delayMs: number
+) {
+  for (let i = 0; i < path.length; i++) {
+    const p = path[i];
+
+    // Paint the node
+    if (!isSamePos(p, start) && !isSamePos(p, goal)) {
+      callPaintNode(viewType, paintNode, p, COLORS.PATH);
+      await delay(delayMs / 2);
+    }
+
+    // Check if this is a portal transition (z-level change between consecutive path points)
+    if (viewType === "3D" && i < path.length - 1 && paintThread) {
+      const currentPos = p as [number, number, number];
+      const nextPos = path[i + 1] as [number, number, number];
+
+      // If z-coordinate changes, this is a portal transition
+      if (currentPos[2] !== nextPos[2]) {
+        const maze3D = maze as number[][][];
+        const currentCell = maze3D[currentPos[2]][currentPos[1]][currentPos[0]];
+        const nextCell = maze3D[nextPos[2]][nextPos[1]][nextPos[0]];
+
+        // Paint the thread if transitioning through portals
+        if (
+          (currentCell === CELL_TYPES.PORTAL_UP &&
+            nextCell === CELL_TYPES.PORTAL_DOWN) ||
+          (currentCell === CELL_TYPES.PORTAL_DOWN &&
+            nextCell === CELL_TYPES.PORTAL_UP)
+        ) {
+          // Apply layer spacing to z-coordinate before calling paintThread
+          const layerSpacing = 10; // Should match the value from Maze3DView
+          const adjustedCurrentPos: [number, number, number] = [
+            currentPos[0],
+            currentPos[1],
+            currentPos[2] * layerSpacing + 1, // +1 to match spherePositions.y in Maze3DView
+          ];
+          const adjustedNextPos: [number, number, number] = [
+            nextPos[0],
+            nextPos[1],
+            nextPos[2] * layerSpacing + 1,
+          ];
+          paintThread(adjustedCurrentPos, adjustedNextPos, COLORS.PATH);
+        }
+      }
+    }
+  }
+}
+
 /** BFS */
 export async function breadthFirstSearch(
   maze: number[][] | number[][][],
@@ -405,6 +493,7 @@ export async function breadthFirstSearch(
   paintNode: PaintNode,
   delayMs: number = 50,
   viewType: "2D" | "3D",
+  paintThread?: PaintThreadFunction,
   abortSignal?: AbortSignal
 ): Promise<SearchResult> {
   const queue: number[][] = [start];
@@ -422,12 +511,16 @@ export async function breadthFirstSearch(
     }
     if (isSamePos(current, goal)) {
       const path = reconstructPath(parentMap, start, goal);
-      for (const p of path) {
-        if (!isSamePos(p, start) && !isSamePos(p, goal)) {
-          callPaintNode(viewType, paintNode, p, COLORS.PATH);
-          await delay(delayMs / 2);
-        }
-      }
+      await paintPathAndThreads(
+        path,
+        start,
+        goal,
+        maze,
+        viewType,
+        paintNode,
+        paintThread,
+        delayMs
+      );
       return { path, visitedCount, success: true };
     }
     const neighbors =
@@ -459,6 +552,7 @@ export async function depthFirstSearch(
   paintNode: PaintNode,
   delayMs: number = 50,
   viewType: "2D" | "3D",
+  paintThread?: PaintThreadFunction,
   abortSignal?: AbortSignal
 ): Promise<SearchResult> {
   const stack: number[][] = [start];
@@ -476,12 +570,16 @@ export async function depthFirstSearch(
     }
     if (isSamePos(current, goal)) {
       const path = reconstructPath(parentMap, start, goal);
-      for (const p of path) {
-        if (!isSamePos(p, start) && !isSamePos(p, goal)) {
-          callPaintNode(viewType, paintNode, p, COLORS.PATH);
-          await delay(delayMs / 2);
-        }
-      }
+      await paintPathAndThreads(
+        path,
+        start,
+        goal,
+        maze,
+        viewType,
+        paintNode,
+        paintThread,
+        delayMs
+      );
       return { path, visitedCount, success: true };
     }
     const neighbors =
@@ -513,19 +611,13 @@ export async function aStarSearch(
   paintNode: PaintNode,
   delayMs: number = 50,
   viewType: "2D" | "3D",
+  paintThread?: PaintThreadFunction,
   abortSignal?: AbortSignal
 ): Promise<SearchResult> {
-  const heuristic = (pos: number[]) => {
-    // Standard Manhattan distance
-    let manhattan = pos.reduce((sum, v, i) => sum + Math.abs(v - goal[i]), 0);
-
-    // If 3D (length 3) and not on the same floor as goal, add a penalty (to encourage vertical moves if needed)
-    if (pos.length === 3 && pos[2] !== goal[2]) {
-      // Higher penalty (tunable); 10 makes vertical move more urgent
-      manhattan += 8;
-    }
-    return manhattan;
-  };
+  const heuristic = (pos: number[]) =>
+    Math.abs(pos[0] - goal[0]) +
+    Math.abs(pos[1] - goal[1]) +
+    Math.abs(pos[2] - goal[2]);
 
   interface Node {
     pos: number[];
@@ -559,12 +651,16 @@ export async function aStarSearch(
 
     if (isSamePos(current.pos, goal)) {
       const path = reconstructPath(parentMap, start, goal);
-      for (const p of path) {
-        if (!isSamePos(p, start) && !isSamePos(p, goal)) {
-          callPaintNode(viewType, paintNode, p, COLORS.PATH);
-          await delay(delayMs / 2);
-        }
-      }
+      await paintPathAndThreads(
+        path,
+        start,
+        goal,
+        maze,
+        viewType,
+        paintNode,
+        paintThread,
+        delayMs
+      );
       return { path, visitedCount, success: true };
     }
 
@@ -601,6 +697,7 @@ export async function dijkstraSearch(
   paintNode: PaintNode,
   delayMs: number = 50,
   viewType: "2D" | "3D",
+  paintThread?: PaintThreadFunction,
   abortSignal?: AbortSignal
 ): Promise<SearchResult> {
   interface Node {
@@ -631,12 +728,16 @@ export async function dijkstraSearch(
 
     if (isSamePos(current.pos, goal)) {
       const path = reconstructPath(parentMap, start, goal);
-      for (const p of path) {
-        if (!isSamePos(p, start) && !isSamePos(p, goal)) {
-          callPaintNode(viewType, paintNode, p, COLORS.PATH);
-          await delay(delayMs / 2);
-        }
-      }
+      await paintPathAndThreads(
+        path,
+        start,
+        goal,
+        maze,
+        viewType,
+        paintNode,
+        paintThread,
+        delayMs
+      );
       return { path, visitedCount, success: true };
     }
 
@@ -671,6 +772,7 @@ export async function greedyBestFirstSearch(
   paintNode: PaintNode,
   delayMs: number = 50,
   viewType: "2D" | "3D",
+  paintThread?: PaintThreadFunction,
   abortSignal?: AbortSignal
 ): Promise<SearchResult> {
   const heuristic = (pos: number[]) =>
@@ -698,12 +800,16 @@ export async function greedyBestFirstSearch(
     }
     if (isSamePos(current.pos, goal)) {
       const path = reconstructPath(parentMap, start, goal);
-      for (const p of path) {
-        if (!isSamePos(p, start) && !isSamePos(p, goal)) {
-          callPaintNode(viewType, paintNode, p, COLORS.PATH);
-          await delay(delayMs / 2);
-        }
-      }
+      await paintPathAndThreads(
+        path,
+        start,
+        goal,
+        maze,
+        viewType,
+        paintNode,
+        paintThread,
+        delayMs
+      );
       return { path, visitedCount, success: true };
     }
     const neighbors =

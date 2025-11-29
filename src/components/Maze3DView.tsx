@@ -1,12 +1,16 @@
-import React, { useMemo, useRef, useEffect } from "react";
+import React, { useMemo, useRef } from "react";
 import { Canvas } from "@react-three/fiber";
-import { OrbitControls } from "@react-three/drei";
-import * as THREE from "three";
+import { OrbitControls, OrthographicCamera } from "@react-three/drei";
 import MazeWalls from "./Wall";
 import InstancedSciFiSpheres from "./SciFiSphere";
 
 import { useMazeAlgorithm } from "@/hooks/useMazeAlgorithm";
 import type { MazeStats, MazeSettings } from "@/App";
+import type { Connection } from "./InstancedElevatorThreads";
+import { CELL_TYPES } from "./utils";
+import InstancedElevatorThreads from "./InstancedElevatorThreads";
+import Floor from "./Floor";
+import BackgroundParticles from "./backgroundParticles";
 
 interface Maze3DViewProps {
   maze3D: number[][][];
@@ -19,40 +23,11 @@ interface Maze3DViewProps {
   setShouldReset: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
-// Instanced Cells Component
-const InstancedCells: React.FC<{
-  nodes: [number, number, number][];
-  cellSize: number;
-  layerSpacing: number;
-}> = ({ nodes, cellSize, layerSpacing }) => {
-  const meshRef = useRef<THREE.InstancedMesh>(null);
-
-  useEffect(() => {
-    if (!meshRef.current) return;
-
-    const dummy = new THREE.Object3D();
-    nodes.forEach(([x, y, z], i) => {
-      dummy.position.set(x * cellSize, z * layerSpacing, y * cellSize);
-      dummy.rotation.set(-Math.PI / 2, 0, 0);
-      dummy.updateMatrix();
-      meshRef.current!.setMatrixAt(i, dummy.matrix);
-    });
-    meshRef.current.instanceMatrix.needsUpdate = true;
-  }, [nodes, cellSize, layerSpacing]);
-
-  return (
-    <instancedMesh ref={meshRef} args={[undefined, undefined, nodes.length]}>
-      <planeGeometry args={[cellSize, cellSize]} />
-      <meshStandardMaterial color="#1a1a1a" side={THREE.DoubleSide} />
-    </instancedMesh>
-  );
-};
-
 const Maze3DView: React.FC<Maze3DViewProps> = (props) => {
   const cellSize = 1;
   const layerSpacing = 10;
 
-  const { sphereRefs, nodes } = useMazeAlgorithm({
+  const { sphereRefs, threadRefs, nodes } = useMazeAlgorithm({
     maze: props.maze3D,
     settings: props.settings,
     isRunning: props.isRunning,
@@ -83,6 +58,43 @@ const Maze3DView: React.FC<Maze3DViewProps> = (props) => {
     []
   );
 
+  const portalPositions = useMemo(() => {
+    const positions: { type: "UP" | "DOWN"; pos: [number, number, number] }[] =
+      [];
+    nodes.forEach(([x, y, z]) => {
+      const cell = props.maze3D[z]?.[y]?.[x];
+      if (cell === CELL_TYPES.PORTAL_UP) {
+        positions.push({ type: "UP", pos: [x, y, z] });
+      } else if (cell === CELL_TYPES.PORTAL_DOWN) {
+        positions.push({ type: "DOWN", pos: [x, y, z] });
+      }
+    });
+    return positions;
+  }, [props.maze3D, nodes]);
+  const elevatorConnections = useMemo(() => {
+    const connections: Connection[] = [];
+
+    portalPositions.forEach((portal) => {
+      if (portal.type === "UP") {
+        const [x, y, z] = portal.pos;
+        const downPortal = portalPositions.find(
+          (p) => p.type === "DOWN" && p.pos[2] === z + 1
+        );
+        if (downPortal) {
+          connections.push({
+            from: [x, y, z * layerSpacing + cellSize],
+            to: [
+              downPortal.pos[0],
+              downPortal.pos[1],
+              downPortal.pos[2] * layerSpacing + cellSize,
+            ],
+          });
+        }
+      }
+    });
+    return connections;
+  }, [portalPositions]);
+
   return (
     <div className="w-screen h-screen">
       <Canvas
@@ -94,15 +106,19 @@ const Maze3DView: React.FC<Maze3DViewProps> = (props) => {
       >
         {materials.ambient}
         {materials.directional}
-        <OrbitControls makeDefault />
 
-        {/* Instanced Cells - Single draw call */}
-        <InstancedCells
-          nodes={nodes as [number, number, number][]}
-          cellSize={cellSize}
-          layerSpacing={layerSpacing}
+        <OrthographicCamera
+          makeDefault
+          position={[
+            props.settings.mazeWidth / 2,
+            Math.max(props.settings.mazeWidth, props.settings.mazeHeight) * 1.5,
+            props.settings.mazeHeight / 2,
+          ]}
+          zoom={
+            Math.min(props.settings.mazeWidth, props.settings.mazeHeight) * 2.5
+          }
         />
-
+        <OrbitControls makeDefault />
         {/* Walls for all layers */}
         {props.maze3D.map((maze, z) => (
           <MazeWalls
@@ -112,13 +128,28 @@ const Maze3DView: React.FC<Maze3DViewProps> = (props) => {
             verticalOffset={z * layerSpacing}
           />
         ))}
-
+        {props.maze3D.map((maze, z) => (
+          <Floor
+            key={`floor-${z}`}
+            width={props.settings.mazeWidth}
+            height={props.settings.mazeHeight}
+            cellSize={cellSize}
+            zIndex={z * layerSpacing}
+          />
+        ))}
         {/* Instanced Sci-Fi Spheres - Single draw call */}
         <InstancedSciFiSpheres
           nodes={nodes as [number, number, number][]}
           positions={spherePositions}
           sphereRefs={sphereRefs}
         />
+
+        <InstancedElevatorThreads
+          connections={elevatorConnections}
+          threadRefs={threadRefs}
+        />
+
+        <BackgroundParticles count={50000} spread={750} color={0x32cd32} />
       </Canvas>
     </div>
   );

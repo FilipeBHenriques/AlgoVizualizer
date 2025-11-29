@@ -25,6 +25,7 @@ interface UseMazeAlgorithmProps<T extends Position> {
   shouldReset: boolean;
   setShouldReset: React.Dispatch<React.SetStateAction<boolean>>;
   viewType: "2D" | "3D";
+  threadRefs?: any;
 }
 
 export function useMazeAlgorithm<T extends Position>({
@@ -38,6 +39,7 @@ export function useMazeAlgorithm<T extends Position>({
   viewType,
 }: UseMazeAlgorithmProps<T>) {
   const sphereRefs = useRef<Map<string, SciFiSphereHandle>>(new Map());
+  const threadRefs = useRef(new Map());
   const abortControllerRef = useRef<AbortController | null>(null);
 
   // Paint node function that works for both 2D and 3D
@@ -48,6 +50,22 @@ export function useMazeAlgorithm<T extends Position>({
     const sphere = sphereRefs.current.get(key);
     if (sphere) {
       sphere.paint(color);
+    }
+  };
+
+  const paintThread = (from: number[], to: number[], color: number) => {
+    console.log("paintThread called with:", { from, to, color }, threadRefs);
+    if (threadRefs && threadRefs.current) {
+      const key = `${from.join("-")}-${to.join("-")}`;
+      const ref = threadRefs.current.get(key);
+      if (ref) {
+        console.log(`Found threadRef for key ${key}, painting...`);
+        ref.paint(color);
+      } else {
+        console.log(`No threadRef found for key ${key}`);
+      }
+    } else {
+      console.log("No threadRefs or threadRefs.current");
     }
   };
 
@@ -92,8 +110,9 @@ export function useMazeAlgorithm<T extends Position>({
     return { nodes: allNodes, start: s, goal: g };
   }, [maze, viewType]);
 
-  // Reset colors for all nodes
+  // Reset colors for all nodes and all threads
   const resetColors = () => {
+    // Reset all spheres (nodes)
     nodes.forEach((pos) => {
       const key = pos.join("-");
       const sphere = sphereRefs.current.get(key);
@@ -120,6 +139,15 @@ export function useMazeAlgorithm<T extends Position>({
 
       sphere.paint(color);
     });
+
+    // Reset all threads to invisible (color 0)
+    if (threadRefs && threadRefs.current) {
+      threadRefs.current.forEach((ref) => {
+        if (ref && typeof ref.paint === "function") {
+          ref.paint(0);
+        }
+      });
+    }
   };
 
   // Reset all colors when maze changes
@@ -169,6 +197,7 @@ export function useMazeAlgorithm<T extends Position>({
           paintNode as any,
           delay,
           viewType,
+          paintThread,
           signal
         );
 
@@ -196,6 +225,11 @@ export function useMazeAlgorithm<T extends Position>({
     setIsRunning(false);
     setStats(null);
     resetColors();
+
+    // To make sure last iteration of algorithm gets cleared reset again
+    setTimeout(() => {
+      resetColors();
+    }, 100);
   };
 
   // Run algorithm when isRunning changes
@@ -212,6 +246,7 @@ export function useMazeAlgorithm<T extends Position>({
 
   return {
     sphereRefs,
+    threadRefs,
     nodes,
     start,
     goal,

@@ -19,34 +19,6 @@ interface Maze2DViewProps {
   setShouldReset: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
-// Instanced Cells Component
-const InstancedCells: React.FC<{
-  nodes: [number, number][];
-  cellSize: number;
-}> = ({ nodes, cellSize }) => {
-  const meshRef = useRef<THREE.InstancedMesh>(null);
-
-  useEffect(() => {
-    if (!meshRef.current) return;
-
-    const dummy = new THREE.Object3D();
-    nodes.forEach(([x, y], i) => {
-      dummy.position.set(x * cellSize, 0, y * cellSize);
-      dummy.rotation.set(-Math.PI / 2, 0, 0);
-      dummy.updateMatrix();
-      meshRef.current!.setMatrixAt(i, dummy.matrix);
-    });
-    meshRef.current.instanceMatrix.needsUpdate = true;
-  }, [nodes, cellSize]);
-
-  return (
-    <instancedMesh ref={meshRef} args={[undefined, undefined, nodes.length]}>
-      <planeGeometry args={[cellSize, cellSize]} />
-      <meshStandardMaterial color="#1a1a1a" side={THREE.DoubleSide} />
-    </instancedMesh>
-  );
-};
-
 // Component to trigger re-renders during animation
 const AutoInvalidate: React.FC<{ isRunning: boolean }> = ({ isRunning }) => {
   useFrame(({ invalidate }) => {
@@ -109,12 +81,6 @@ export default function Maze2DView(props: Maze2DViewProps) {
         {materials.directional}
 
         <BackgroundParticles count={50000} spread={100} color={0x32cd32} />
-
-        {/* Instanced Cells - Single draw call */}
-        <InstancedCells
-          nodes={nodes as [number, number][]}
-          cellSize={cellSize}
-        />
 
         <MazeWalls maze={props.maze} cellSize={cellSize} />
 
