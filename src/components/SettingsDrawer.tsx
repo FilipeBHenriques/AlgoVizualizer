@@ -22,6 +22,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Settings, Play, RotateCcw, Square, Cuboid } from "lucide-react";
 import type { Algorithm, MazeSettings, MazeStats } from "@/App";
+import { COLORS } from "./utils";
 
 const algorithmNames: Record<Algorithm, string> = {
   bfs: "Breadth-First Search (BFS)",
@@ -331,9 +332,46 @@ export default function SettingsDrawer({
             </p>
           </div>
           <div className="pt-2 border-t border-white/20 space-y-1 text-xs">
-            <p>🔵 Blue = Visited</p>
-            <p>🟡 Yellow = Frontier</p>
-            <p>🟣 Magenta = Path</p>
+            {/* 
+              Color legend using the actual COLORS from utils.ts 
+              (frontier = COLORS.FRONTIER, visited = COLORS.VISITED, path = COLORS.PATH)
+            */}
+            <p>
+              <span
+                className="inline-block w-3 h-3 rounded-full align-middle mr-1"
+                style={{
+                  backgroundColor: `#${COLORS.VISITED.toString(16).padStart(
+                    6,
+                    "0"
+                  )}`,
+                }}
+              ></span>
+              Visited
+            </p>
+            <p>
+              <span
+                className="inline-block w-3 h-3 rounded-full align-middle mr-1"
+                style={{
+                  backgroundColor: `#${COLORS.FRONTIER.toString(16).padStart(
+                    6,
+                    "0"
+                  )}`,
+                }}
+              ></span>
+              Frontier
+            </p>
+            <p>
+              <span
+                className="inline-block w-3 h-3 rounded-full align-middle mr-1"
+                style={{
+                  backgroundColor: `#${COLORS.PATH.toString(16).padStart(
+                    6,
+                    "0"
+                  )}`,
+                }}
+              ></span>
+              Path
+            </p>
           </div>
         </div>
       )}
