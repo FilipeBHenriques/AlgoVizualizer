@@ -73,6 +73,7 @@ function App() {
     settings.mazeHeight,
     settings.wallDensity,
     settings.viewType,
+    settings.mazeLevels,
   ]);
 
   return (

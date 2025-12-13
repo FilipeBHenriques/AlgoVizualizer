@@ -95,6 +95,22 @@ const Maze3DView: React.FC<Maze3DViewProps> = (props) => {
     return connections;
   }, [portalPositions]);
 
+  const mazeWidthWorld = props.settings.mazeWidth * cellSize;
+  const mazeDepthWorld = props.settings.mazeHeight * cellSize;
+  const mazeHeightWorld = props.settings.mazeLevels * layerSpacing;
+
+  const center = [
+    mazeWidthWorld / 2,
+    mazeHeightWorld / 2,
+    mazeDepthWorld / 2,
+  ] as [number, number, number];
+
+  const maxDimension = Math.max(
+    mazeWidthWorld,
+    mazeHeightWorld,
+    mazeDepthWorld
+  );
+
   return (
     <div className="w-screen h-screen">
       <Canvas
@@ -109,14 +125,10 @@ const Maze3DView: React.FC<Maze3DViewProps> = (props) => {
 
         <OrthographicCamera
           makeDefault
-          position={[
-            props.settings.mazeWidth / 2,
-            Math.max(props.settings.mazeWidth, props.settings.mazeHeight) * 1.5,
-            props.settings.mazeHeight / 2,
-          ]}
-          zoom={
-            Math.min(props.settings.mazeWidth, props.settings.mazeHeight) * 2.5
-          }
+          position={[center[0], center[1] + maxDimension, center[2]]}
+          zoom={Math.min(mazeWidthWorld, mazeDepthWorld) * 0.8}
+          near={-maxDimension * 2}
+          far={maxDimension * 2}
         />
         <OrbitControls makeDefault />
         {/* Walls for all layers */}
