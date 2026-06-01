@@ -1,7 +1,6 @@
-import React, { useRef, useMemo, useEffect } from "react";
+import React, { useMemo } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { OrthographicCamera, OrbitControls } from "@react-three/drei";
-import * as THREE from "three";
 import MazeWalls from "./Wall";
 import BackgroundParticles from "./backgroundParticles";
 import InstancedSciFiSpheres from "./SciFiSphere";

@@ -29,7 +29,7 @@ const BackgroundParticles: React.FC<BackgroundParticlesProps> = ({
     return pos;
   }, [count, spread]);
 
-  useFrame((state, delta) => {
+  useFrame((_state, delta) => {
     if (!pointsRef.current) return;
     pointsRef.current.rotation.y += delta * 0.02; // slow rotation
     pointsRef.current.rotation.x += delta * 0.01;
@@ -40,9 +40,7 @@ const BackgroundParticles: React.FC<BackgroundParticlesProps> = ({
       <bufferGeometry>
         <bufferAttribute
           attach="attributes-position"
-          count={positions.length / 3}
-          array={positions}
-          itemSize={3}
+          args={[positions, 3]}
         />
       </bufferGeometry>
       <pointsMaterial

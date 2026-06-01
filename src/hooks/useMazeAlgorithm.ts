@@ -1,7 +1,10 @@
 import React, { useRef, useMemo, useEffect } from "react";
 
 import type { MazeSettings, MazeStats } from "@/App";
-import type { SciFiSphereHandle } from "@/components/SciFiSphere";
+
+interface SciFiSphereHandle {
+  paint: (color: number) => void;
+}
 import {
   aStarSearch,
   breadthFirstSearch,

@@ -40,11 +40,6 @@ const algorithmDescriptions: Record<Algorithm, string> = {
   greedy: "Uses only heuristic. Fast but may not find optimal path.",
 };
 
-const viewTypeLabels: Record<MazeSettings["viewType"], string> = {
-  "2d": "2D",
-  "3d": "3D",
-};
-
 interface SettingsDrawerProps {
   settings: MazeSettings;
   setSettings: React.Dispatch<React.SetStateAction<MazeSettings>>;
@@ -172,8 +167,6 @@ export default function SettingsDrawer({
                     }
                     disabled={isRunning}
                     className="dark"
-                    trackClassName="bg-zinc-700"
-                    thumbClassName="bg-blue-500"
                   />
                   <p className="text-sm text-zinc-400">
                     Higher = faster visualization
@@ -220,8 +213,6 @@ export default function SettingsDrawer({
                     }
                     disabled={isRunning}
                     className="dark"
-                    trackClassName="bg-zinc-700"
-                    thumbClassName="bg-blue-500"
                   />
                 </div>
 
@@ -241,8 +232,6 @@ export default function SettingsDrawer({
                     }
                     disabled={isRunning}
                     className="dark"
-                    trackClassName="bg-zinc-700"
-                    thumbClassName="bg-blue-500"
                   />
                 </div>
 
@@ -262,8 +251,6 @@ export default function SettingsDrawer({
                     }
                     disabled={isRunning}
                     className="dark"
-                    trackClassName="bg-zinc-700"
-                    thumbClassName="bg-blue-500"
                   />
                   <p className="text-sm text-zinc-400">
                     Higher = more walls (harder maze)

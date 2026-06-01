@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import SettingsDrawer from "./components/SettingsDrawer";
 import Maze2DView from "./components/Maze2DView";
 import { generateMaze, generateMaze3D, printMaze } from "./components/utils";

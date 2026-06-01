@@ -20,7 +20,6 @@ const InstancedElevatorThreads: React.FC<InstancedElevatorThreadsProps> = ({
   threadRefs,
 }) => {
   const meshRef = useRef<THREE.InstancedMesh>(null);
-  const glowRef = useRef<THREE.InstancedMesh>(null);
 
   // Color arrays for each thread
   const visibilityArray = useMemo(

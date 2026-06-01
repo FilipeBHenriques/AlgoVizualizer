@@ -141,7 +141,6 @@ export function generateMaze3D(
   height: number
 ): number[][][] {
   let maze3D: number[][][];
-  let success = false;
   let start: [number, number, number] | null = null;
   let goal: [number, number, number] | null = null;
 
@@ -300,7 +299,7 @@ export type PaintThreadFunction = (
 ) => void;
 
 export interface SearchResult {
-  path: Position[];
+  path: number[][];
   visitedCount: number;
   success: boolean;
 }

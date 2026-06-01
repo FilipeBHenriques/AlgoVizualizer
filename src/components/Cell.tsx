@@ -1,7 +1,6 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useMemo, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
-import SciFiSphere from "./SciFiSphere";
 
 interface CellProps {
   position?: [number, number, number];
@@ -42,6 +41,17 @@ export default function Cell({ position = [0, 0, 0], size = 1 }: CellProps) {
     return new THREE.BufferGeometry().setFromPoints(points);
   }, [size]);
 
+  const lineMaterial = useMemo(() => {
+    const mat = new THREE.LineBasicMaterial({ color: BORDER_COLOR_DEFAULT, linewidth: 2 });
+    borderMaterialRef.current = mat;
+    return mat;
+  }, []);
+
+  const lineObject = useMemo(
+    () => new THREE.Line(borderGeometry, lineMaterial),
+    [borderGeometry, lineMaterial]
+  );
+
   // Height of cell, for true cube (should match width/length)
   const cubeHeight = size;
 
@@ -75,17 +85,10 @@ export default function Cell({ position = [0, 0, 0], size = 1 }: CellProps) {
       </mesh>
       {/* Border effect: thin circle on the *top face* (y = half cube height), in xz-plane */}
       <group
-        position={[0, 0, cubeHeight / 2]} // precisely on top face
-        rotation={[-Math.PI / 2, 0, 0]} // align into xz-plane to match top
+        position={[0, 0, cubeHeight / 2]}
+        rotation={[-Math.PI / 2, 0, 0]}
       >
-        <line geometry={borderGeometry}>
-          <lineBasicMaterial
-            ref={borderMaterialRef}
-            color={BORDER_COLOR_DEFAULT}
-            linewidth={2}
-          />
-        </line>
-        {/* Sci-Fi node */}
+        <primitive object={lineObject} />
       </group>
     </group>
   );

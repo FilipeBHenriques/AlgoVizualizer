@@ -1,4 +1,4 @@
-import React, { useMemo, useRef } from "react";
+import React, { useMemo } from "react";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, OrthographicCamera } from "@react-three/drei";
 import MazeWalls from "./Wall";
@@ -41,7 +41,7 @@ const Maze3DView: React.FC<Maze3DViewProps> = (props) => {
   // Pre-computed positions for sci-fi spheres
   const spherePositions = useMemo(
     () =>
-      nodes.map(([x, y, z]) => ({
+      nodes.map(([x, y, z = 0]) => ({
         x: x * cellSize,
         y: z * layerSpacing + 1,
         z: y * cellSize,
@@ -61,7 +61,7 @@ const Maze3DView: React.FC<Maze3DViewProps> = (props) => {
   const portalPositions = useMemo(() => {
     const positions: { type: "UP" | "DOWN"; pos: [number, number, number] }[] =
       [];
-    nodes.forEach(([x, y, z]) => {
+    nodes.forEach(([x, y, z = 0]) => {
       const cell = props.maze3D[z]?.[y]?.[x];
       if (cell === CELL_TYPES.PORTAL_UP) {
         positions.push({ type: "UP", pos: [x, y, z] });
@@ -140,7 +140,7 @@ const Maze3DView: React.FC<Maze3DViewProps> = (props) => {
             verticalOffset={z * layerSpacing}
           />
         ))}
-        {props.maze3D.map((maze, z) => (
+        {props.maze3D.map((_maze, z) => (
           <Floor
             key={`floor-${z}`}
             width={props.settings.mazeWidth}
